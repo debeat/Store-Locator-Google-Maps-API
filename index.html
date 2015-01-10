@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <title>Store Locator</title>
+    <style>
+      html, body {
+        height: 100%;
+        margin: 0px;
+        padding: 0px
+      }
+      #map-canvas{
+      	height: 90%;
+      	top: 10%;
+      	left: 20%;
+
+      }
+      #locatorTools{
+      	left: 2%;
+      	height: 30%;
+      	width: 18%;
+      	top: 10%;
+      	position:absolute;
+      }
+    </style>
+    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&libraries=places"></script>
+
+    <script>
+var map, layer, geocoder;
+
+function initialize() {
+  var sanFrancisco = new google.maps.LatLng(37.7833, -122.4167);
+  geocoder = new google.maps.Geocoder();
+
+  map = new google.maps.Map(document.getElementById('map-canvas'), {
+    center: sanFrancisco,
+    zoom: 12
+  });
+
+  layer = new google.maps.FusionTablesLayer({
+    query: {
+      select: 'Name',
+      from: '1NceJCztGhHOIE-RUfD5Tm7B8Kk1PuCZZ8dYjve1d',
+      where: 'Latitude > 37.11348127146129 and Latitude < 38.17798793137503 and Longitude > -123.69214403076171 and Longitude < -121.05542528076171'
+    }
+  });
+  layer.setMap(map);
+
+  //Autocomplete form
+   autocomplete = new google.maps.places.Autocomplete(
+      (document.getElementById('userAddress')),
+      { types: ['geocode'] });
+
+  // Geocode when user hits enter
+  google.maps.event.addListener(autocomplete, 'place_changed', function() {
+    codeAddress();
+  });
+
+//Added event listener to find appropriate bounds for bay area
+//  google.maps.event.addListener(map, 'idle', function(ev){
+
+// 	var bounds = map.getBounds();
+// 	var ne = bounds.getNorthEast();
+// 	var sw = bounds.getSouthWest();
+//     console.log(ne, sw);
+// });
+}
+
+
+
+function codeAddress() {
+  var address = document.getElementById('userAddress').value;
+  geocoder.geocode( { 'address': address}, function(results, status) {
+    if (status == google.maps.GeocoderStatus.OK) {
+      map.setCenter(results[0].geometry.location);
+
+      var contentString = '<div id="content">' + 
+      '<h3 id=Header>User Address</h3>' +
+      '<p>'+address+'</p></div>'
+  	  var infowindow = new google.maps.InfoWindow({
+      	content: contentString,
+      	maxWidth: 300
+  	  });
+
+      var marker = new google.maps.Marker({
+          map: map,
+          position: results[0].geometry.location
+      });
+
+      google.maps.event.addListener(marker, 'click', function() {
+	    infowindow.open(map,marker);
+ 	  });
+    } else {
+      alert('Geocode was not successful for the following reason: ' + status);
+    }
+  });
+}
+
+
+google.maps.event.addDomListener(window, 'load', initialize);
+
+    </script>
+  </head>
+  <body>
+  	<div id="locatorTools">
+  		<label>Enter Address</label>
+  		<input id="userAddress" placeholder="Enter your address" type="text"></input>
+  		<input type="button" value="Geocode" onclick="codeAddress()">
+  	</div>
+    <div id="map-canvas"></div>
+  </body>
+</html>
+<!-- 
+where: 'Latitude > 37.11348127146129 and Latitude < 38.17798793137503 and Longitude > -123.69214403076171 and Longitude < -121.05542528076171' -->
