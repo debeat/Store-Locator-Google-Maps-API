@@ -18,25 +18,82 @@
       }
       #locatorTools{
       	left: 2%;
-      	height: 30%;
+      	height: 90%;
       	width: 18%;
       	top: 10%;
       	position:absolute;
       }
+      #directionsPanel{
+        height: 40%;
+        overflow:auto;
+      }
     </style>
-    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp"></script>
+    <script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
     <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&libraries=places"></script>
 
     <script>
-var map, layer, geocoder;
+var map, layer, geocoder, json;
+var markers = [];
+var origin = [];
+var destinations = [];
+var markersArray = [];
+var distances = [];
+var smallestThree = [];
+var bounds = new google.maps.LatLngBounds();
+var directionsDisplay;
+var directionsService = new google.maps.DirectionsService();
+var mapStyle;
+var destinationIcon = 'https://chart.googleapis.com/chart?chst=d_map_pin_letter&chld=D|FF0000|000000';
+var originIcon = 'https://chart.googleapis.com/chart?chst=d_map_pin_letter&chld=O|FFFF00|000000';
 
 function initialize() {
+  directionsDisplay = new google.maps.DirectionsRenderer();
   var sanFrancisco = new google.maps.LatLng(37.7833, -122.4167);
   geocoder = new google.maps.Geocoder();
-
+  mapStyle = [
+    {
+      "featureType": "water",
+      "stylers": [
+        { "color": "#8093ab" }
+      ]
+    },{
+      "featureType": "road.highway.controlled_access",
+      "elementType": "geometry.stroke",
+      "stylers": [
+        { "color": "#261816" }
+      ]
+    },{
+      "featureType": "landscape.man_made",
+      "elementType": "geometry.fill",
+      "stylers": [
+        { "color": "#ffffff" }
+      ]
+    },{
+      "featureType": "road.arterial",
+      "elementType": "geometry.fill",
+      "stylers": [
+        { "color": "#696969" }
+      ]
+    },{
+      "featureType": "landscape.natural",
+      "elementType": "geometry.fill",
+      "stylers": [
+        { "saturation": -83 },
+        { "lightness": 1 },
+        { "color": "#e9e9e9" }
+      ]
+    },{
+      "featureType": "poi.park",
+      "elementType": "geometry.fill",
+      "stylers": [
+        { "color": "#8Fbc8f" }
+      ]
+    }
+  ];
   map = new google.maps.Map(document.getElementById('map-canvas'), {
     center: sanFrancisco,
-    zoom: 12
+    zoom: 12,
+    styles: mapStyle
   });
 
   layer = new google.maps.FusionTablesLayer({
@@ -53,6 +110,9 @@ function initialize() {
       (document.getElementById('userAddress')),
       { types: ['geocode'] });
 
+  // Directions diplay
+  directionsDisplay.setMap(map);
+  directionsDisplay.setPanel(document.getElementById('directionsPanel'));
   // Geocode when user hits enter
   google.maps.event.addListener(autocomplete, 'place_changed', function() {
     codeAddress();
@@ -68,38 +128,166 @@ function initialize() {
 // });
 }
 
-
+//Initialize map
+google.maps.event.addDomListener(window, 'load', initialize);
 
 function codeAddress() {
+
   var address = document.getElementById('userAddress').value;
-  geocoder.geocode( { 'address': address}, function(results, status) {
+
+  setTimeout(geocoder.geocode( { 'address': address}, function(results, status) {
     if (status == google.maps.GeocoderStatus.OK) {
+      //remove previous user location search entry
+      if (markers.length > 0){
+         markers[0].setMap(null);
+         markers = [];
+      }
       map.setCenter(results[0].geometry.location);
 
-      var contentString = '<div id="content">' + 
+      var contentString = '<div id="content">' +
       '<h3 id=Header>User Address</h3>' +
       '<p>'+address+'</p></div>'
-  	  var infowindow = new google.maps.InfoWindow({
-      	content: contentString,
-      	maxWidth: 300
-  	  });
+      var infowindow = new google.maps.InfoWindow({
+        content: contentString,
+        maxWidth: 300
+      });
 
       var marker = new google.maps.Marker({
           map: map,
           position: results[0].geometry.location
       });
+      markers.push(marker);
 
       google.maps.event.addListener(marker, 'click', function() {
-	    infowindow.open(map,marker);
- 	  });
+      infowindow.open(map,marker);
+     });
+     //url to get top three locations from fusion tables
+     var url = 'https://www.googleapis.com/fusiontables/v1/query?sql=SELECT%20Name,%20Address,%20Latitude,%20Longitude%20FROM%201NceJCztGhHOIE-RUfD5Tm7B8Kk1PuCZZ8dYjve1d%20WHERE%20Latitude%3E37.11348127146129%20and%20Latitude%3C38.17798793137503%20and%20Longitude%3E-123.69214403076171%20and%20Longitude%3C-121.05542528076171%20LIMIT%2025&key=AIzaSyCj7oKHBaybpvrcWsaOgApr0W8pKIVe_FU';
+     // Add three closest locations
+    $.getJSON(url, function(data){
+      json = data;
+    })
+    .done(function(data){
+          origin = [];
+          origin.push(address);
+          calculateDistanceForClosestStores(origin, json);
+    });
     } else {
       alert('Geocode was not successful for the following reason: ' + status);
+    }
+  }), 2500);
+}
+
+function calculateDistanceForClosestStores(origin, json){
+    console.log(json);
+    destinations = [];
+    for (var i=0; i<25; i++){
+      destinations.push(json.rows[i][1]);
+    }
+    var service = new google.maps.DistanceMatrixService();
+    service.getDistanceMatrix(
+    {
+      origins: origin,
+      destinations: destinations,
+      travelMode: google.maps.TravelMode.DRIVING,
+      unitSystem: google.maps.UnitSystem.IMPERIAL,
+      avoidHighways: false,
+      avoidTolls: false
+    }, callback);
+}
+
+function callback(response, status) {
+  if (status != google.maps.DistanceMatrixStatus.OK) {
+    alert('Error was: ' + status);
+  } else {
+    var originsFromDM = response.originAddresses;
+    var destinationsFromDM = response.destinationAddresses;
+    var outputDiv = document.getElementById('distanceCalculator');
+    outputDiv.innerHTML = '';
+    deleteOverlays();
+
+    for (var i = 0; i < originsFromDM.length; i++) {
+      var results = response.rows[i].elements;
+      addMarker(originsFromDM[i], false);
+      distances = [];
+      for(var k = 0; k < results.length; k++) {
+        distances.push(results[k].distance.value);
+      }
+      var closestThreeList = getClosestLocations(distances);
+      for (var j = 0; j < results.length; j++) {
+        for (var l = 0; l < 3; l++){
+          if(closestThreeList[l] == results[j].distance.value){
+            addMarker(destinationsFromDM[j], true);
+            outputDiv.innerHTML += '<div><p>'+originsFromDM[i] + ' to ' + destinationsFromDM[j] + ': '
+            + results[j].distance.text + ' in ' + results[j].duration.text + '</p><input type="button" onclick="calcRoute(\''+originsFromDM[i]+'\' , \''+destinationsFromDM[j]+'\' )" value= "Calculate Route"></input><br></div>';
+          }
+        }
+      }
+    }
+  }
+}
+
+function calcRoute(start, end) {
+  var request = {
+    origin: start,
+    destination: end,
+    travelMode: google.maps.TravelMode.DRIVING
+  };
+  directionsService.route(request, function(response, status) {
+    if (status == google.maps.DirectionsStatus.OK) {
+      directionsDisplay.setDirections(response);
     }
   });
 }
 
+function getClosestLocations(distances){
+  smallestThree = [];
+  for (var i=0; i<3; i++){
+    var value = Math.min.apply(Math, distances);
+    var index = $.inArray(value, distances);
+    var index2 = $.inArray(value, smallestThree);
+    if (index2 < 0){
+     smallestThree.push(value);
+    }
+    if (index > -1){
+      distances.splice(index, 1);
+    }
+  }
+  return smallestThree;
+}
+function addMarker(location, isDestination) {
+  var icon;
+  if (isDestination) {
+    icon = destinationIcon;
+  }
+  // else {
+  //   icon = originIcon;
+  // }
+  setTimeout(geocoder.geocode({'address': location}, function(results, status) {
+    if (status == google.maps.GeocoderStatus.OK) {
+      bounds.extend(results[0].geometry.location);
+      map.fitBounds(bounds);
+      var marker = new google.maps.Marker({
+        map: map,
+        position: results[0].geometry.location,
+        icon: icon
+      });
+      markersArray.push(marker);
+    } else {
+      console.log('Geocode was not successful for the following reason: '
+        + status);
+    }
+  }), 2500);
+}
 
-google.maps.event.addDomListener(window, 'load', initialize);
+function deleteOverlays() {
+  for (var i = 0; i < markersArray.length; i++) {
+    markersArray[i].setMap(null);
+  }
+  markersArray = [];
+}
+
+
 
     </script>
   </head>
@@ -108,9 +296,13 @@ google.maps.event.addDomListener(window, 'load', initialize);
   		<label>Enter Address</label>
   		<input id="userAddress" placeholder="Enter your address" type="text"></input>
   		<input type="button" value="Geocode" onclick="codeAddress()">
+      <div id="distanceCalculator" >
+        <h3>Closest 3 stores</h3>
+      </div>
+      <div id = "directionsPanel"></div>
   	</div>
     <div id="map-canvas"></div>
   </body>
 </html>
-<!-- 
+<!--
 where: 'Latitude > 37.11348127146129 and Latitude < 38.17798793137503 and Longitude > -123.69214403076171 and Longitude < -121.05542528076171' -->
