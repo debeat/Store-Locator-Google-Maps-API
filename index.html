@@ -7,7 +7,6 @@
     <link rel="stylesheet" type="text/css" href="css/Style.css">
     <script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
     <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&libraries=places"></script>
-
     <script>
 var map, layer, geocoder, json;
 var markers = [];
@@ -100,15 +99,9 @@ function initialize() {
   google.maps.event.addListener(autocomplete, 'place_changed', function() {
     codeAddress();
   });
-
-//Added event listener to find appropriate bounds for bay area
-//  google.maps.event.addListener(map, 'idle', function(ev){
-
-// 	var bounds = map.getBounds();
-// 	var ne = bounds.getNorthEast();
-// 	var sw = bounds.getSouthWest();
-//     console.log(ne, sw);
-// });
+  $("#storeList").hide();
+  $("#distanceCalculator").hide();
+  $("#directionsPanel").hide();
 }
 
 //Initialize map
@@ -151,6 +144,12 @@ function handleNoGeolocation(errorFlag) {
 }
 
 function codeAddress() {
+  if($("#userAddress").val() === ''){
+    alert('Please enter address or get location from browser');
+  }
+  else{
+  $("#storeList").show();
+  $("#distanceCalculator").show();
   for(var i=0; i<json.rows.length;i++){
     var o = new Option(json.rows[i][0],json.rows[i][1]);
     $(o).html(json.rows[i][0]);
@@ -165,6 +164,7 @@ function codeAddress() {
   origin = [];
   origin.push(address);
   calculateDistanceForClosestStores(origin, json);
+  }
 }
 
 function calculateRouteForSingleStore(){
@@ -201,7 +201,8 @@ function callback(response, status) {
 
     for (var i = 0; i < originsFromDM.length; i++) {
       var results = response.rows[i].elements;
-      addMarker(originsFromDM[i], false);
+      var userContentString = createContentString(originsFromDM[i], true);
+      addMarker(originsFromDM[i], false, userContentString);
       distances = [];
       for(var k = 0; k < results.length; k++) {
         distances.push(results[k].distance.value);
@@ -210,7 +211,8 @@ function callback(response, status) {
       for (var j = 0; j < results.length; j++) {
         for (var l = 0; l < 3; l++){
           if(closestThreeList[l] == results[j].distance.value){
-            addMarker(destinationsFromDM[j], true);
+            var destContentString = createContentString(destinationsFromDM[j], false);
+            addMarker(destinationsFromDM[j], true, destContentString);
             outputDiv.innerHTML += '<div><p>' + destinationsFromDM[j] + '<br> '  + results[j].distance.text + ' in ' + results[j].duration.text + '</p><input type="button" onclick="calcRoute(\''+originsFromDM[i]+'\' , \''+destinationsFromDM[j]+'\')" value= "Calculate Route"></input><br></div>';
           }
         }
@@ -219,7 +221,22 @@ function callback(response, status) {
   }
 }
 
+function createContentString(string, isOrigin){
+  var contentString;
+  if (isOrigin){
+    contentString = '<div id= "content"><strong>User Address</strong>';
+    contentString += '<p>'+string+'</p></div>';
+    return contentString;
+  }
+  else{
+    contentString = '<div id= "content"><strong>Destination</strong>';
+    contentString += '<p>'+string+'</p></div>';
+    return contentString;
+  }
+
+}
 function calcRoute(start, end) {
+  $("#directionsPanel").show();
   directionsDisplay.setMap(map);
   directionsDisplay.setPanel(document.getElementById('directionsPanel'));
   var request = {
@@ -249,7 +266,7 @@ function getClosestLocations(distances){
   }
   return smallestThree;
 }
-function addMarker(location, isDestination) {
+function addMarker(location, isDestination, contentString) {
 
   var icon;
   if (isDestination) {
@@ -263,10 +280,16 @@ function addMarker(location, isDestination) {
       map.setCenter(results[0].geometry.location);
       bounds.extend(results[0].geometry.location);
       map.fitBounds(bounds);
+      var infowindow = new google.maps.InfoWindow({
+      content: contentString
+      });
       var marker = new google.maps.Marker({
         map: map,
         position: results[0].geometry.location,
         icon: icon
+      });
+      google.maps.event.addListener(marker, 'click', function() {
+           infowindow.open(map,marker);
       });
       markersArray.push(marker);
     } else {
@@ -289,73 +312,23 @@ function deleteOverlays() {
   </head>
   <body>
   	<div id="locatorTools">
-      <span>Enter Address</span><br>
+      <strong>Enter Address</strong><br><br>
   		<input id="userAddress" placeholder="Enter your address" type="text"></input><br>
-  		<input type="button" value="Geocode" onclick="codeAddress()">
+  		<input type="button" value="Search" onclick="codeAddress()">
       <input type="button" value="Get Location From Browser" onclick="getBrowserLocation()"><br><br>
-      <span>Select Store</span><br>
-      <select id="storeSelector" onchange="calculateRouteForSingleStore()"></select>
   	</div>
+    <div id="storeList">
+      <strong>Select Store</strong><br><br>
+      <select id="storeSelector" onchange="calculateRouteForSingleStore()">
+      <option value="" disabled selected>Select your option</option>
+      </select>
+    </div>
     <div id="distanceCalculator" >
       <h3>Top 3 Stores</h3>
     </div>
     <div id = "directionsPanel">
-    <h3>Directions</h3>
+      <h3>Directions</h3>
     </div>
     <div id="map-canvas"></div>
   </body>
 </html>
-<!--
-where: 'Latitude > 37.11348127146129 and Latitude < 38.17798793137503 and Longitude > -123.69214403076171 and Longitude < -121.05542528076171' -->
-<!-- for (var i=0; i<markersArray.length; i++){
-  for(var j=0; j<4; j++){
-    markersArray[j].setMap(null);
-  }
-  if (arrayIndex == i || i === 0){
-    markersArray[i].setMap(null);
-  }
-  else{
-    markersArray[i].setMap(map);
-  }
-} -->
-<!-- setTimeout(geocoder.geocode( { 'address': address}, function(results, status) {
-  if (status == google.maps.GeocoderStatus.OK) {
-    //remove previous user location search entry
-    if (markers.length > 0){
-       markers[0].setMap(null);
-       markers = [];
-    }
-    map.setCenter(results[0].geometry.location);
-
-  //   var contentString = '<div id="content">' +
-  //   '<h3 id=Header>User Address</h3>' +
-  //   '<p>'+address+'</p></div>'
-  //   var infowindow = new google.maps.InfoWindow({
-  //     content: contentString,
-  //     maxWidth: 300
-  //   });
-   //
-  //   var marker = new google.maps.Marker({
-  //       map: map,
-  //       position: results[0].geometry.location
-  //   });
-  //   markers.push(marker);
-   //
-  //   google.maps.event.addListener(marker, 'click', function() {
-  //   infowindow.open(map,marker);
-  //  });
-   //url to get top three locations from fusion tables
-   var url = 'https://www.googleapis.com/fusiontables/v1/query?sql=SELECT%20Name,%20Address,%20Latitude,%20Longitude%20FROM%201NceJCztGhHOIE-RUfD5Tm7B8Kk1PuCZZ8dYjve1d%20WHERE%20Latitude%3E37.11348127146129%20and%20Latitude%3C38.17798793137503%20and%20Longitude%3E-123.69214403076171%20and%20Longitude%3C-121.05542528076171%20LIMIT%2025&key=AIzaSyCj7oKHBaybpvrcWsaOgApr0W8pKIVe_FU';
-   // Add three closest locations
-  $.getJSON(url, function(data){
-    json = data;
-  })
-  .done(function(data){
-        origin = [];
-        origin.push(address);
-        calculateDistanceForClosestStores(origin, json);
-  });
-  } else {
-    alert('Geocode was not successful for the following reason: ' + status);
-  }
-}), 2500); -->
