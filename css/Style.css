@@ -8,10 +8,25 @@ html, body {
   margin: 0%;
   padding: 0%;
 }
+
+#storeList{
+  padding:0.4%;
+  right: 0%;
+  height: 10%;
+  width: 20%;
+  top: 1%;
+  position:absolute;
+  z-index: 5;
+  overflow: auto;
+  background-color:#A8A8A8;
+  box-shadow: 10px 10px 10px #474747;
+  border-radius: 10px;
+}
+
 #locatorTools{
   padding:0.4%;
   left: 6%;
-  height: 18%;
+  height: 12%;
   width: 20%;
   top: 4%;
   position:absolute;
@@ -29,7 +44,7 @@ html, body {
   right: 0%;
   width:20%;
   position:absolute;
-  top:56%;
+  top:58.4%;
   z-index: 5;
   background-color:#A8A8A8;
   box-shadow: 10px 10px 10px #474747;
@@ -40,7 +55,7 @@ html, body {
   right: 0%;
   height: 40%;
   width: 20%;
-  top: 4%;
+  top: 14%;
   position:absolute;
   z-index: 5;
   overflow: auto;
